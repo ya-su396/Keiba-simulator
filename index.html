@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14251d">
+<title>競馬予想シミュレーター</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">🏇 競馬予想シミュレーター</div>
+  <p>予想を記録して、的中率・回収率を検証する</p>
+</header>
+<nav class="tabs" aria-label="メインメニュー">
+  <button class="tab active" data-view="dashboard">成績</button>
+  <button class="tab" data-view="races">レース管理</button>
+  <button class="tab" data-view="backtest">バックテスト</button>
+  <button class="tab" data-view="predict">自動予想</button>
+  <button class="tab" data-view="data">データ管理</button>
+</nav>
+<main>
+<section id="dashboard" class="view active">
+  <h1>成績ダッシュボード</h1>
+  <div class="metrics">
+    <article class="metric"><span>登録レース</span><strong id="mRaces">0</strong></article>
+    <article class="metric"><span>的中率（レース）</span><strong id="mHit">—</strong></article>
+    <article class="metric"><span>回収率</span><strong id="mRoi">—</strong></article>
+    <article class="metric"><span>収支</span><strong id="mProfit">¥0</strong></article>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>最近のレース</h2><button class="primary" id="quickAdd">＋ レースを登録</button></div>
+    <div id="recentRaces" class="empty">まだデータがありません。レースを登録して始めましょう。</div>
+  </div>
+  <p class="hint">※ 初期状態ではサンプルデータは入りません。的中率・回収率は登録した購入想定と払戻から計算します。</p>
+</section>
+
+<section id="races" class="view">
+  <h1>レース管理</h1>
+  <div class="panel">
+    <h2 id="formTitle">レースを登録</h2>
+    <form id="raceForm">
+      <input type="hidden" id="raceId">
+      <div class="form-grid">
+        <label>開催日<input id="raceDate" type="date" required></label>
+        <label>競馬場<input id="venue" placeholder="例：京都" required></label>
+        <label>レース番号<input id="raceNo" placeholder="例：11R" required></label>
+        <label>レース名<input id="raceName" placeholder="例：菊花賞"></label>
+        <label>馬場・距離<input id="course" placeholder="例：芝3000m"></label>
+        <label>馬場状態<select id="going"><option value="">未入力</option><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></label>
+        <label>予想メモ<input id="prediction" placeholder="本命・根拠など"></label>
+        <label>使用モデル<input id="modelVersion" value="手動予想 v1"></label>
+      </div>
+      <div class="form-grid">
+        <label>購入想定額（円）<input id="stake" type="number" min="0" step="100" value="0" required></label>
+        <label>払戻額（円）<input id="payout" type="number" min="0" step="10" value="0" required></label>
+        <label class="check-label"><input id="settled" type="checkbox"> 結果確定済み（成績に反映）</label>
+      </div>
+      <label>買い目・結果メモ<textarea id="notes" rows="3" placeholder="例：馬連 6-9 500円、3連複 6-9-10 500円／結果：..."></textarea></label>
+      <div class="actions"><button class="primary" type="submit">保存</button><button type="button" id="cancelEdit" class="secondary hidden">編集をキャンセル</button></div>
+    </form>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>登録済みレース</h2><input id="raceSearch" class="search" placeholder="競馬場・レース名で検索"></div>
+    <div id="raceList" class="empty">レースはまだ登録されていません。</div>
+  </div>
+</section>
+
+<section id="backtest" class="view">
+  <h1>バックテスト</h1>
+  <p class="intro">登録済みレースのうち「結果確定済み」にチェックしたレースを集計します。購入額・払戻額は実際の馬券単位ではなく、レースごとの合計額を入力してください。</p>
+  <div class="metrics">
+    <article class="metric"><span>検証対象</span><strong id="bCount">0</strong></article>
+    <article class="metric"><span>的中レース率</span><strong id="bHit">—</strong></article>
+    <article class="metric"><span>回収率</span><strong id="bRoi">—</strong></article>
+    <article class="metric"><span>総購入 / 総払戻</span><strong id="bTotals">¥0 / ¥0</strong></article>
+  </div>
+  <div class="panel"><h2>期間で絞り込み</h2>
+    <div class="form-grid">
+      <label>開始日<input type="date" id="fromDate"></label>
+      <label>終了日<input type="date" id="toDate"></label>
+      <div class="actions"><button class="primary" id="applyRange">適用</button><button id="clearRange" class="secondary">解除</button></div>
+    </div>
+    <div id="backtestTable" class="empty">確定済みのレースがありません。</div>
+  </div>
+  <p class="hint">注意：これは登録済みの予想を集計する簡易バックテストです。過去の出走表・オッズを自動再現する機能や、予想モデルの自動学習機能は含みません。</p>
+</section>
+
+
+<section id="predict" class="view">
+  <h1>自動予想（簡易スコアモデル）</h1>
+  <p class="intro">出走馬・単勝オッズ・近走評価を入力すると、ルールベースで各馬を採点して順位と買い目候補を提案します。外部データの自動取得や学習済みAIではありません。予想の検証用として使ってください。</p>
+  <div class="panel">
+    <h2>予想条件</h2>
+    <div class="form-grid">
+      <label>レース名<input id="predRaceName" placeholder="例：京都11R 菊花賞"></label>
+      <label>券種<select id="predBetType"><option value="wide">ワイド候補</option><option value="umaren">馬連候補</option><option value="trio">3連複候補</option></select></label>
+      <label>オッズ重視 <span id="oddsWeightLabel">60%</span><input id="oddsWeight" type="range" min="0" max="100" value="60"></label>
+      <label>近走評価重視 <span id="formWeightLabel">40%</span><input id="formWeight" type="range" min="0" max="100" value="40"></label>
+    </div>
+    <p class="hint">重みは自動で合計100%になるよう調整します。近走評価は1〜5（5が高評価）。同じルールで過去レースも検証し、実績に合わせて調整してください。</p>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>出走馬データ</h2><button type="button" id="addHorse" class="secondary">＋ 馬を追加</button></div>
+    <p class="hint">1行に1頭。馬番,馬名,単勝オッズ,近走評価（1〜5）の順。サンプル行は自由に書き換えてね。</p>
+    <textarea id="horseInput" rows="8" spellcheck="false">1,サンプルホースA,8.5,4
+2,サンプルホースB,3.2,5
+3,サンプルホースC,12.0,3
+4,サンプルホースD,5.4,4
+5,サンプルホースE,18.0,2
+6,サンプルホースF,7.0,4</textarea>
+    <div class="actions"><button class="primary" id="runPrediction">予想を計算</button><button id="savePredictionRace" class="secondary">予想をレース管理に保存</button></div>
+    <p id="predictionError" class="hint" aria-live="polite"></p>
+  </div>
+  <div class="panel">
+    <h2>予想ランキング</h2>
+    <div id="predictionResults" class="empty">出走馬データを入力して「予想を計算」を押してください。</div>
+  </div>
+  <div class="panel">
+    <h2>買い目候補</h2>
+    <div id="predictionBets" class="empty">計算後に候補を表示します。</div>
+    <p class="hint">買い目は参考候補です。資金配分・購入判断は別途検討してください。実際の投票や馬券購入は行いません。</p>
+  </div>
+</section>
+
+<section id="data" class="view">
+  <h1>データ管理</h1>
+  <div class="panel">
+    <h2>CSVエクスポート</h2>
+    <p>登録レースをCSVファイルとして保存できます。表計算ソフトで開いて分析したり、バックアップに使えます。</p>
+    <button class="primary" id="exportCsv">レースデータをCSVで出力</button>
+  </div>
+  <div class="panel">
+    <h2>CSVインポート</h2>
+    <p>このアプリが出力したCSVを読み込んで復元できます。同じIDのレースは上書きされます。</p>
+    <label>CSVファイル<input id="importFile" type="file" accept=".csv,text/csv"></label>
+    <button class="primary" id="importCsv">CSVを読み込む</button>
+    <p id="importStatus" class="hint" aria-live="polite"></p>
+  </div>
+  <div class="panel danger-panel">
+    <h2>データを削除</h2>
+    <p>このブラウザに保存された全レースを削除します。先にCSVでバックアップしてください。</p>
+    <button class="danger" id="clearAll">すべてのデータを削除</button>
+  </div>
+  <div class="panel">
+    <h2>保存方式とプライバシー</h2>
+    <p>この初期版はブラウザの localStorage に保存します。サーバーへの送信はありませんが、データはその端末・ブラウザ内に限られます。スマホとMacで自動共有するには、次の段階でクラウドDBを接続する必要があります。</p>
+  </div>
+</section>
+</main>
+<footer>個人用の予想検証ツール。投票・馬券購入機能はありません。</footer>
+<script src="app.js"></script>
+</body>
+</html>
