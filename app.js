@@ -55,102 +55,279 @@ $("importCsv").onclick=async()=>{const file=$("importFile").files[0];if(!file){$
 $("clearAll").onclick=()=>{if(confirm("すべての登録データを削除します。この操作は取り消せません。")){races=[];save();resetForm()}};
 renderAll();
 
-// ===== AI予想強化モジュール v2 =====
 
-// 馬の評価データを解析する
-function analyzeHorseStrength(horse) {
-  const odds = Number(horse.odds);
-  const form = Number(horse.form);
-  const distance = Number(horse.distance ?? 3);
-  const course = Number(horse.course ?? 3);
-  const jockey = Number(horse.jockey ?? 3);
 
-  if (!Number.isFinite(odds) || odds <= 0) {
-    throw new Error("オッズが正しくありません");
+// ===== AI予想エンジン v3 =====
+
+let lastPrediction = [];
+
+// 評価ウェイト（合計100）
+const AI_WEIGHTS = {
+  form: 0.30,
+  distance: 0.15,
+  course: 0.15,
+  jockey: 0.10,
+  odds: 0.20,
+  going: 0.10
+};
+
+// 1〜5点を0〜100点に変換
+function ratingScore(value) {
+  return (Number(value) - 1) * 25;
+}
+
+// 出走馬データ解析
+// 入力形式：
+// 馬番,馬名,単勝オッズ,近走評価,
+// 距離適性,コース適性,騎手評価,馬場適性
+
+function parseHorses() {
+  const lines = $("horseInput").value
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const horses = [];
+  const numbers = new Set();
+
+  lines.forEach((line, i) => {
+    const p = line.split(",").map(s => s.trim());
+
+    if (p.length < 4) {
+      throw new Error(
+        `${i + 1}行目：馬番、馬名、オッズ、近走評価が必要です。`
+      );
+    }
+
+    const [no, name] = p;
+    const odds = Number(p[2]);
+
+    const values = [
+      Number(p[3]),
+      p[4] === undefined || p[4] === "" ? 3 : Number(p[4]),
+      p[5] === undefined || p[5] === "" ? 3 : Number(p[5]),
+      p[6] === undefined || p[6] === "" ? 3 : Number(p[6]),
+      p[7] === undefined || p[7] === "" ? 3 : Number(p[7])
+    ];
+
+    if (!no || !name || !Number.isFinite(odds) || odds <= 0) {
+      throw new Error(`${i + 1}行目：馬番・馬名・オッズを確認してください。`);
+    }
+
+    if (numbers.has(no)) {
+      throw new Error(`${i + 1}行目：馬番が重複しています。`);
+    }
+
+    if (values.some(v => !Number.isFinite(v) || v < 1 || v > 5)) {
+      throw new Error(`${i + 1}行目：評価はすべて1〜5で入力してください。`);
+    }
+
+    numbers.add(no);
+
+    horses.push({
+      no,
+      name,
+      odds,
+      form: values[0],
+      distance: values[1],
+      course: values[2],
+      jockey: values[3],
+      going: values[4]
+    });
+  });
+
+  if (horses.length < 3) {
+    throw new Error("出走馬を3頭以上入力してください。");
   }
 
-  const scores = {
-    odds: Math.min(100, (1 / odds) * 100),
-    form: form * 20,
-    distance: distance * 20,
-    course: course * 20,
-    jockey: jockey * 20
-  };
+  return horses;
+}
 
-  const total =
-    scores.odds * 0.30 +
-    scores.form * 0.30 +
-    scores.distance * 0.15 +
-    scores.course * 0.15 +
-    scores.jockey * 0.10;
+// オッズから市場評価を算出
+function marketProbabilities(horses) {
+  const inverse = horses.map(h => 1 / h.odds);
+  const total = inverse.reduce((a, b) => a + b, 0);
 
-  return {
-    ...horse,
-    scores,
-    total
+  return inverse.map(v => v / total);
+}
+
+// 再現可能な乱数生成
+function seededRandom(seed) {
+  let x = seed >>> 0;
+
+  return function() {
+    x += 0x6D2B79F5;
+    let t = x;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-// 出走馬の総合順位とモデル推定勝率を計算
-function runEnhancedPrediction(horses) {
-  if (!Array.isArray(horses) || horses.length < 3) {
-    throw new Error("3頭以上の馬を登録してください");
+// Plackett-Luce方式による順位シミュレーション
+// 各馬の強さに応じて1〜3着を繰り返し抽選する
+function simulatePlaces(horses, weights) {
+  const N = 5000;
+  const counts = new Array(horses.length).fill(0);
+
+  const seedText = horses
+    .map(h => `${h.no}:${h.odds}:${h.form}:${h.distance}:${h.course}:${h.jockey}:${h.going}`)
+    .join("|");
+
+  let seed = 2166136261;
+
+  for (let i = 0; i < seedText.length; i++) {
+    seed = Math.imul(seed ^ seedText.charCodeAt(i), 16777619);
   }
 
-  const analyzed = horses
-    .map(analyzeHorseStrength)
-    .sort((a, b) => b.total - a.total);
+  const random = seededRandom(seed);
 
-  const temperature = 15;
-  const weights = analyzed.map(h =>
-    Math.exp((h.total - analyzed[0].total) / temperature)
-  );
+  for (let n = 0; n < N; n++) {
+    const remaining = weights.map((w, i) => ({
+      index: i,
+      weight: w
+    }));
 
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
+    for (let place = 0; place < Math.min(3, horses.length); place++) {
+      const total = remaining.reduce(
+        (sum, h) => sum + h.weight, 0
+      );
 
-  return analyzed.map((horse, index) => {
-    const winProbability = weights[index] / totalWeight;
+      let target = random() * total;
+      let selected = 0;
+
+      for (let j = 0; j < remaining.length; j++) {
+        target -= remaining[j].weight;
+
+        if (target <= 0) {
+          selected = j;
+          break;
+        }
+      }
+
+      const winner = remaining.splice(selected, 1)[0];
+      counts[winner.index]++;
+    }
+  }
+
+  return counts.map(v => v / N * 100);
+}
+
+// v3予想本体
+function calculatePrediction() {
+  const horses = parseHorses();
+
+  let ow = Number($("oddsWeight").value);
+  let fw = Number($("formWeight").value);
+
+  const weightTotal = ow + fw || 1;
+  ow /= weightTotal;
+  fw /= weightTotal;
+
+  // 市場オッズの評価
+  const market = marketProbabilities(horses);
+  const maxMarket = Math.max(...market);
+
+  const analyzed = horses.map((h, i) => {
+    const scores = {
+      form: ratingScore(h.form),
+      distance: ratingScore(h.distance),
+      course: ratingScore(h.course),
+      jockey: ratingScore(h.jockey),
+      odds: market[i] / maxMarket * 100,
+      going: ratingScore(h.going)
+    };
+
+    // 既存のオッズ・近走重視スライダーも利用
+    const otherWeight = 0.30;
+
+    const adjustedScore =
+      scores.odds * ow +
+      scores.form * fw +
+      scores.distance * otherWeight * (0.30 / 0.70) +
+      scores.course * otherWeight * (0.30 / 0.70) +
+      scores.jockey * otherWeight * (0.20 / 0.70) +
+      scores.going * otherWeight * (0.20 / 0.70);
 
     return {
-      ...horse,
-      rank: index + 1,
-      estimatedWinRate: winProbability * 100,
-      expectedValue: winProbability * Number(horse.odds)
+      ...h,
+      scores,
+      total: adjustedScore
     };
   });
+
+  // 確率変換
+  const temperature = 15;
+
+  const strengths = analyzed.map(h =>
+    Math.exp((h.total - Math.max(...analyzed.map(x => x.total))) / temperature)
+  );
+
+  const sum = strengths.reduce((a, b) => a + b, 0);
+
+  const placeRates = simulatePlaces(analyzed, strengths);
+
+  const results = analyzed.map((h, i) => {
+    const winRate = strengths[i] / sum * 100;
+    const expectedValue = (winRate / 100) * h.odds;
+
+    return {
+      ...h,
+      winRate,
+      placeRate: placeRates[i],
+      expectedValue,
+      edge: (expectedValue - 1) * 100
+    };
+  });
+
+  return results.sort((a, b) => b.total - a.total)
+    .map((h, i) => ({
+      ...h,
+      rank: i + 1
+    }));
 }
 
 // 予想結果を画面に表示
-function showEnhancedPrediction() {
+function renderPrediction() {
   try {
-    const horses = parseHorses();
-    const results = runEnhancedPrediction(horses);
+    lastPrediction = calculatePrediction();
 
-    const rows = results.map(h => `
-      <tr>
-        <td>${h.rank}位</td>
-        <td>${esc(h.no)} ${esc(h.name)}</td>
-        <td>${h.total.toFixed(1)}</td>
-        <td>${h.estimatedWinRate.toFixed(2)}%</td>
-        <td>${((h.expectedValue - 1) * 100).toFixed(1)}%</td>
-      </tr>
-    `).join("");
+    $("predictionError").textContent = "";
 
-    const old = $("enhancedPredictionResults");
-    if (old) old.remove();
+    const rows = lastPrediction.map(h => {
+      const label =
+        h.rank === 1 ? "本命" :
+        h.rank === 2 ? "対抗" :
+        h.rank <= 4 ? "有力" : "候補";
 
-    const output = document.createElement("div");
-    output.id = "enhancedPredictionResults";
-    output.innerHTML = `
-      <h3>強化AI予想ランキング</h3>
+      return `
+        <tr>
+          <td><span class="rank-badge">${h.rank}</span></td>
+          <td>
+            ${esc(h.no)} ${esc(h.name)}
+            <br><small>${label}</small>
+          </td>
+          <td>${h.total.toFixed(1)}</td>
+          <td>${h.winRate.toFixed(2)}%</td>
+          <td>${h.placeRate.toFixed(1)}%</td>
+          <td>${h.odds.toFixed(1)}倍</td>
+          <td>${h.expectedValue.toFixed(3)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    $("predictionResults").innerHTML = `
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>順位</th>
-              <th>馬名</th>
+              <th>馬名・評価</th>
               <th>総合点</th>
-              <th>モデル推定勝率</th>
+              <th>推定勝率</th>
+              <th>推定複勝率</th>
+              <th>オッズ</th>
               <th>期待値指数</th>
             </tr>
           </thead>
@@ -158,87 +335,145 @@ function showEnhancedPrediction() {
         </table>
       </div>
       <p class="hint">
-        推定値は未校正のモデル出力です。
-        実際の勝率や利益を保証しません。
+        勝率はモデル内の相対確率。複勝率は順位シミュレーションによる推定値。
+        いずれも実測校正前の参考値です。
       </p>
     `;
 
-    $("predictionResults").after(output);
+    renderBetCandidates();
 
   } catch (error) {
+    lastPrediction = [];
     $("predictionError").textContent = error.message;
+    $("predictionResults").innerHTML =
+      '<div class="empty">入力内容を確認してください。</div>';
+    $("predictionBets").innerHTML =
+      '<div class="empty">有効なデータがありません。</div>';
   }
 }
 
-// 新しい予想ボタンを既存画面に追加
-(function addEnhancedPredictionButton() {
-  if (!$("runPrediction") ||
-      $("runEnhancedPrediction")) return;
+// 買い目候補
+function renderBetCandidates() {
+  const top = [...lastPrediction]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 4);
 
-  const button = document.createElement("button");
-  button.id = "runEnhancedPrediction";
-  button.textContent = "強化AI予想を実行";
-  button.addEventListener("click", showEnhancedPrediction);
+  const type = $("predBetType").value;
 
-  $("runPrediction").after(button);
-})();
+  let bets = [];
 
-// Rule-based prediction module: odds-implied strength + manually entered recent-form score.
-let lastPrediction = [];
-function parseHorses(){
- const lines=$("horseInput").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
- const horses=[];
- for(let i=0;i<lines.length;i++){
-   const p=lines[i].split(",").map(s=>s.trim());
-   if(p.length<4) throw new Error(`${i+1}行目：馬番,馬名,単勝オッズ,近走評価 の4項目が必要です。`);
-   const no=p[0], name=p[1], odds=Number(p[2]), form=Number(p[3]);
-   if(!no||!name||!Number.isFinite(odds)||odds<=0||!Number.isFinite(form)||form<1||form>5)
-     throw new Error(`${i+1}行目：馬番・馬名・正のオッズ・1〜5の近走評価を確認してください。`);
-   horses.push({no,name,odds,form});
- }
- if(horses.length<3) throw new Error("予想には最低3頭を入力してください。");
- return horses;
+  if (type === "wide" || type === "umaren") {
+    for (let i = 0; i < Math.min(3, top.length); i++) {
+      for (let j = i + 1; j < Math.min(3, top.length); j++) {
+        bets.push(`${top[i].no}-${top[j].no}`);
+      }
+    }
+  } else if (top.length >= 3) {
+    bets.push(
+      `${top[0].no}-${top[1].no}-${top[2].no}`
+    );
+  }
+
+  $("predictionBets").innerHTML = `
+    <p><strong>${
+      type === "wide" ? "ワイド" :
+      type === "umaren" ? "馬連" : "3連複"
+    }候補</strong></p>
+    <p>${bets.map(esc).join(" ／ ")}</p>
+    <p class="hint">
+      上位評価馬の組み合わせです。
+      券種ごとの払戻期待値は未計算です。
+    </p>
+  `;
 }
-function calculatePrediction(){
- const horses=parseHorses();
- let ow=Number($("oddsWeight").value), fw=Number($("formWeight").value);
- const total=ow+fw||1;ow/=total;fw/=total;
- const inv=horses.map(h=>1/h.odds), maxInv=Math.max(...inv);
- const scored=horses.map((h,i)=>{
-   const oddsScore=inv[i]/maxInv*100;
-   const formScore=h.form/5*100;
-   // Transparent heuristic score, not a calibrated win probability.
-   const score=oddsScore*ow+formScore*fw;
-   return {...h,oddsScore,formScore,score};
- }).sort((a,b)=>b.score-a.score);
- const maxScore=scored[0]?.score||1;
- return scored.map((h,i)=>({...h,rank:i+1,relative:(h.score/maxScore*100)}));
-}
-function renderPrediction(){
- try{
-  lastPrediction=calculatePrediction();
-  $("predictionError").textContent="";
-  $("predictionResults").innerHTML=`<div class="prediction-note">スコアはオッズと手入力の近走評価を重み付けした相対評価です。勝率そのものではありません。</div><div class="table-wrap"><table><thead><tr><th>順位</th><th>馬番・馬名</th><th>単勝オッズ</th><th>近走評価</th><th>スコア</th></tr></thead><tbody>${lastPrediction.map(h=>`<tr><td><span class="rank-badge">${h.rank}</span></td><td>${esc(h.no)} ${esc(h.name)}</td><td>${h.odds.toFixed(1)}倍</td><td>${h.form}/5</td><td class="horse-score">${h.score.toFixed(1)}</td></tr>`).join("")}</tbody></table></div>`;
-  const top=lastPrediction.slice(0,4);
-  let bets=[];
-  const type=$("predBetType").value;
-  if(type==="wide") bets=top.slice(0,3).flatMap((a,i)=>top.slice(i+1,3).map(b=>`${a.no}-${b.no}`));
-  else if(type==="umaren") bets=top.slice(0,3).flatMap((a,i)=>top.slice(i+1,3).map(b=>`${a.no}-${b.no}`));
-  else bets=top.slice(0,3).length===3?[`${top[0].no}-${top[1].no}-${top[2].no}`]:[];
-  $("predictionBets").innerHTML=`<p><strong>${type==="wide"?"ワイド":type==="umaren"?"馬連":"3連複"}候補</strong></p><p>${bets.map(esc).join("　／　")||"候補を作成できません"}</p><p class="hint">上位馬を組み合わせた単純候補です。券種のオッズ・期待値は計算していません。</p>`;
- }catch(e){lastPrediction=[];$("predictionError").textContent=e.message;$("predictionResults").innerHTML='<div class="empty">入力内容を確認してください。</div>';$("predictionBets").innerHTML='<div class="empty">有効なデータがありません。</div>'}
-}
-$("oddsWeight").addEventListener("input",()=>{$("oddsWeightLabel").textContent=$("oddsWeight").value+"%";$("formWeight").value=100-Number($("oddsWeight").value);$("formWeightLabel").textContent=$("formWeight").value+"%"});
-$("formWeight").addEventListener("input",()=>{$("formWeightLabel").textContent=$("formWeight").value+"%";$("oddsWeight").value=100-Number($("formWeight").value);$("oddsWeightLabel").textContent=$("oddsWeight").value+"%"});
-$("runPrediction").onclick=renderPrediction;
-$("addHorse").onclick=()=>{$("horseInput").value += ($("horseInput").value.trim()?"\n":"")+"7,追加ホース,10.0,3"};
-$("savePredictionRace").onclick=()=>{
- if(!lastPrediction.length)renderPrediction();
- if(!lastPrediction.length)return;
- const date=new Date().toISOString().slice(0,10);
- const raceName=$("predRaceName").value.trim()||"自動予想レース";
- const top=lastPrediction.slice(0,3).map(h=>`${h.rank}位 ${h.no} ${h.name} (score ${h.score.toFixed(1)})`).join(" / ");
- const r={id:uid(),date,venue:"未入力",raceNo:"未入力",raceName,course:"",going:"",prediction:top,modelVersion:"簡易スコア v1",stake:0,payout:0,settled:false,notes:`券種候補: ${$("predBetType").selectedOptions[0].textContent}\n出走馬:\n${$("horseInput").value}`};
- races.push(r);save();showView("races");alert("予想をレース管理に保存しました。開催日・競馬場・購入想定額などを必要に応じて編集してください。");
+
+// 馬追加
+$("addHorse").onclick = () => {
+  const current = $("horseInput").value.trim();
+
+  $("horseInput").value =
+    current +
+    (current ? "\n" : "") +
+    "7,追加ホース,10.0,3,3,3,3,3";
 };
 
+// 重みスライダー
+$("oddsWeight").addEventListener("input", () => {
+  $("oddsWeightLabel").textContent =
+    $("oddsWeight").value + "%";
+
+  $("formWeight").value =
+    100 - Number($("oddsWeight").value);
+
+  $("formWeightLabel").textContent =
+    $("formWeight").value + "%";
+});
+
+$("formWeight").addEventListener("input", () => {
+  $("formWeightLabel").textContent =
+    $("formWeight").value + "%";
+
+  $("oddsWeight").value =
+    100 - Number($("formWeight").value);
+
+  $("oddsWeightLabel").textContent =
+    $("oddsWeight").value + "%";
+});
+
+// 予想実行
+$("runPrediction").onclick = renderPrediction;
+
+// 保存
+$("savePredictionRace").onclick = () => {
+  if (!lastPrediction.length) {
+    renderPrediction();
+  }
+
+  if (!lastPrediction.length) return;
+
+  const raceName =
+    $("predRaceName").value.trim() || "自動予想レース";
+
+  const top = lastPrediction
+    .slice(0, 3)
+    .map(h =>
+      `${h.rank}位 ${h.no} ${h.name} ` +
+      `(勝率 ${h.winRate.toFixed(2)}%)`
+    )
+    .join(" / ");
+
+  const r = {
+    id: uid(),
+    date: new Date().toISOString().slice(0, 10),
+    venue: "未入力",
+    raceNo: "未入力",
+    raceName,
+    course: "",
+    going: "",
+    prediction: top,
+    modelVersion: "AI予想 v3",
+    stake: 0,
+    payout: 0,
+    settled: false,
+    notes:
+      "券種候補: " +
+      $("predBetType").selectedOptions[0].textContent +
+      "\n出走馬:\n" +
+      $("horseInput").value +
+      "\n予想順位・勝率・複勝率:\n" +
+      lastPrediction.map(h =>
+        `${h.rank}位 ${h.no} ${h.name} ` +
+        `勝率${h.winRate.toFixed(2)}% ` +
+        `複勝率${h.placeRate.toFixed(1)}%`
+      ).join("\n")
+  };
+
+  races.push(r);
+  save();
+  showView("races");
+
+  alert("AI予想 v3をレース管理に保存しました。");
+};
+
+// 初期表示
+renderPrediction;
