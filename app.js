@@ -180,8 +180,7 @@ function simulatePlaces(horses, weights) {
   for (let i = 0; i < seedText.length; i++) {
     seed = Math.imul(seed ^ seedText.charCodeAt(i), 16777619);
   }
-
-  const random = seededRandom(seed);
+const random = seededRandom(seed);
 
   for (let n = 0; n < N; n++) {
     const remaining = weights.map((w, i) => ({
@@ -189,7 +188,7 @@ function simulatePlaces(horses, weights) {
       weight: w
     }));
 
-    for (let place = 0; place < Math.min(3, horses.length); place++) {
+    for (let place = 0; place < Math.min(horses.length >= 8 ? 3 : horses.length >= 2 ? 2 : 1, horses.length); place++) {
       const total = remaining.reduce(
         (sum, h) => sum + h.weight, 0
       );
@@ -213,7 +212,7 @@ function simulatePlaces(horses, weights) {
 
   return counts.map(v => v / N * 100);
 }
-
+  
 // v3予想本体
 function calculatePrediction() {
   const horses = parseHorses();
