@@ -476,4 +476,4 @@ $("savePredictionRace").onclick = () => {
 };
 
 // 初期表示
-renderPrediction;
+renderPrediction();
