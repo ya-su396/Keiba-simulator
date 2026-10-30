@@ -51,6 +51,133 @@ $("importCsv").onclick=async()=>{const file=$("importFile").files[0];if(!file){$
 $("clearAll").onclick=()=>{if(confirm("すべての登録データを削除します。この操作は取り消せません。")){races=[];save();resetForm()}};
 renderAll();
 
+// ===== AI予想強化モジュール v2 =====
+
+// 馬の評価データを解析する
+function analyzeHorseStrength(horse) {
+  const odds = Number(horse.odds);
+  const form = Number(horse.form);
+  const distance = Number(horse.distance ?? 3);
+  const course = Number(horse.course ?? 3);
+  const jockey = Number(horse.jockey ?? 3);
+
+  if (!Number.isFinite(odds) || odds <= 0) {
+    throw new Error("オッズが正しくありません");
+  }
+
+  const scores = {
+    odds: Math.min(100, (1 / odds) * 100),
+    form: form * 20,
+    distance: distance * 20,
+    course: course * 20,
+    jockey: jockey * 20
+  };
+
+  const total =
+    scores.odds * 0.30 +
+    scores.form * 0.30 +
+    scores.distance * 0.15 +
+    scores.course * 0.15 +
+    scores.jockey * 0.10;
+
+  return {
+    ...horse,
+    scores,
+    total
+  };
+}
+
+// 出走馬の総合順位とモデル推定勝率を計算
+function runEnhancedPrediction(horses) {
+  if (!Array.isArray(horses) || horses.length < 3) {
+    throw new Error("3頭以上の馬を登録してください");
+  }
+
+  const analyzed = horses
+    .map(analyzeHorseStrength)
+    .sort((a, b) => b.total - a.total);
+
+  const temperature = 15;
+  const weights = analyzed.map(h =>
+    Math.exp((h.total - analyzed[0].total) / temperature)
+  );
+
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+
+  return analyzed.map((horse, index) => {
+    const winProbability = weights[index] / totalWeight;
+
+    return {
+      ...horse,
+      rank: index + 1,
+      estimatedWinRate: winProbability * 100,
+      expectedValue: winProbability * Number(horse.odds)
+    };
+  });
+}
+
+// 予想結果を画面に表示
+function showEnhancedPrediction() {
+  try {
+    const horses = parseHorses();
+    const results = runEnhancedPrediction(horses);
+
+    const rows = results.map(h => `
+      <tr>
+        <td>${h.rank}位</td>
+        <td>${esc(h.no)} ${esc(h.name)}</td>
+        <td>${h.total.toFixed(1)}</td>
+        <td>${h.estimatedWinRate.toFixed(2)}%</td>
+        <td>${((h.expectedValue - 1) * 100).toFixed(1)}%</td>
+      </tr>
+    `).join("");
+
+    const old = $("enhancedPredictionResults");
+    if (old) old.remove();
+
+    const output = document.createElement("div");
+    output.id = "enhancedPredictionResults";
+    output.innerHTML = `
+      <h3>強化AI予想ランキング</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>順位</th>
+              <th>馬名</th>
+              <th>総合点</th>
+              <th>モデル推定勝率</th>
+              <th>期待値指数</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="hint">
+        推定値は未校正のモデル出力です。
+        実際の勝率や利益を保証しません。
+      </p>
+    `;
+
+    $("predictionResults").after(output);
+
+  } catch (error) {
+    $("predictionError").textContent = error.message;
+  }
+}
+
+// 新しい予想ボタンを既存画面に追加
+(function addEnhancedPredictionButton() {
+  if (!$("runPrediction") ||
+      $("runEnhancedPrediction")) return;
+
+  const button = document.createElement("button");
+  button.id = "runEnhancedPrediction";
+  button.textContent = "強化AI予想を実行";
+  button.addEventListener("click", showEnhancedPrediction);
+
+  $("runPrediction").after(button);
+})();
 
 // Rule-based prediction module: odds-implied strength + manually entered recent-form score.
 let lastPrediction = [];
@@ -110,3 +237,4 @@ $("savePredictionRace").onclick=()=>{
  const r={id:uid(),date,venue:"未入力",raceNo:"未入力",raceName,course:"",going:"",prediction:top,modelVersion:"簡易スコア v1",stake:0,payout:0,settled:false,notes:`券種候補: ${$("predBetType").selectedOptions[0].textContent}\n出走馬:\n${$("horseInput").value}`};
  races.push(r);save();showView("races");alert("予想をレース管理に保存しました。開催日・競馬場・購入想定額などを必要に応じて編集してください。");
 };
+
