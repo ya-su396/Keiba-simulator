@@ -30,7 +30,11 @@ function renderBacktest(){
  if(!list.length){$("backtestTable").innerHTML='<div class="empty">条件に合う確定済みレースがありません。</div>';return}
  $("backtestTable").innerHTML=`<div class="table-wrap"><table><thead><tr><th>日付・レース</th><th>購入</th><th>払戻</th><th>収支</th><th>結果</th></tr></thead><tbody>${list.map(r=>`<tr><td>${esc(raceLabel(r))}</td><td>${yen(r.stake)}</td><td>${yen(r.payout)}</td><td>${yen((+r.payout||0)-(+r.stake||0))}</td><td>${+r.payout>0?"的中":"不的中"}</td></tr>`).join("")}</tbody></table></div>`;
 }
-function renderAll(){renderMetrics();renderRaces();renderBacktest()}
+function renderAll(){
+ renderMetrics();
+ renderRaces();
+ renderBacktest();
+}
 function resetForm(){ $("raceForm").reset();$("raceId").value="";$("modelVersion").value="手動予想 v1";$("stake").value=0;$("payout").value=0;$("formTitle").textContent="レースを登録";$("cancelEdit").classList.add("hidden")}
 function editRace(id){const r=races.find(x=>x.id===id);if(!r)return; $("raceId").value=r.id;fields.forEach(k=>{const el($(fieldId(k))).type==="checkbox"?$(fieldId(k)).checked=!!r[k]:$(fieldId(k)).value=r[k]??""});$("formTitle").textContent="レースを編集";$("cancelEdit").classList.remove("hidden");showView("races");window.scrollTo({top:0,behavior:"smooth"})}
 function fieldId(k){return ({date:"raceDate",venue:"venue",raceNo:"raceNo",raceName:"raceName",course:"course",going:"going",prediction:"prediction",modelVersion:"modelVersion",stake:"stake",payout:"payout",settled:"settled",notes:"notes"})[k]}
