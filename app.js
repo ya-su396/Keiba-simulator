@@ -485,10 +485,13 @@ window.exportRaceBackup = function() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
 
-  a.href = url;
-  a.download = "keiba-backup.json";
-  a.click();
+a.href = url;
+a.download = "keiba-backup.json";
+document.body.appendChild(a);
+a.click();
+a.remove();
 
+setTimeout(() => URL.revokeObjectURL(url), 1000);
   URL.revokeObjectURL(url);
 };
 
