@@ -478,3 +478,42 @@ $("savePredictionRace").onclick = () => {
 
 // 初期表示
 renderPrediction();
+// レースデータのバックアップ・復元
+window.exportRaceBackup = function() {
+  const data = JSON.stringify(races, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = "keiba-backup.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+};
+
+window.importRaceBackup = function(file) {
+  const reader = new FileReader();
+
+  reader.onload = function() {
+    try {
+      const imported = JSON.parse(reader.result);
+
+      if (!Array.isArray(imported)) {
+        throw new Error("ファイル形式が違います");
+      }
+
+      if (!confirm("現在のレース記録を置き換えて復元しますか？")) {
+        return;
+      }
+
+      races = imported;
+      save();
+      alert("レース記録を復元しました！");
+    } catch (e) {
+      alert("復元できませんでした。バックアップファイルを確認してください。");
+    }
+  };
+
+  reader.readAsText(file);
+};
