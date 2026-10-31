@@ -256,12 +256,14 @@ function calculatePrediction() {
     };
   });
 
-  // 確率変換
-  const temperature = 15;
+  /// 確率変換（極端な勝率を抑える調整）
+const temperature = 30;
 
-  const strengths = analyzed.map(h =>
-    Math.exp((h.total - Math.max(...analyzed.map(x => x.total))) / temperature)
-  );
+const maxTotal = Math.max(...analyzed.map(h => h.total));
+
+const strengths = analyzed.map(h =>
+  Math.exp((h.total - maxTotal) / temperature)
+);
 
   const sum = strengths.reduce((a, b) => a + b, 0);
 
