@@ -149,6 +149,13 @@
 </section>
 </main>
 <footer>個人用の予想検証ツール。投票・馬券購入機能はありません。</footer>
+  <section>
+  <h2>データのバックアップ・復元</h2>
+  <button type="button" onclick="exportRaceBackup()">バックアップを保存</button>
+  <p>保存したバックアップファイルからレース記録を復元できます。</p>
+  <input type="file" accept=".json,application/json"
+    onchange="if(this.files[0]) importRaceBackup(this.files[0]); this.value='';">
+</section>
 <script src="app.js"></script>
 </body>
 </html>
