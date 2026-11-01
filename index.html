@@ -103,6 +103,15 @@
   <div class="panel">
     <div class="panel-head"><h2>出走馬データ</h2><button type="button" id="addHorse" class="secondary">＋ 馬を追加</button></div>
     <p class="hint">1行に1頭。馬番,馬名,単勝オッズ,近走評価（1〜5）の順。サンプル行は自由に書き換えてね。</p>
+<div class="field">
+  <label for="racePace">今回の想定ペース</label>
+  <select id="racePace">
+    <option value="slow">スローペース</option>
+    <option value="normal" selected>平均ペース</option>
+    <option value="fast">ハイペース</option>
+  </select>
+</div>
+
     <textarea id="horseInput" rows="8" spellcheck="false">1,サンプルホースA,8.5,4
 2,サンプルホースB,3.2,5
 3,サンプルホースC,12.0,3
