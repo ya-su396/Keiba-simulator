@@ -67,13 +67,27 @@ function renderPredictionStats() {
   );
 
   const total = list.length;
+
   const hits = list.reduce(
     (sum, r) => sum + checkPredictedHorses(r).hits,
     0
   );
 
+  const predictedTotal = list.reduce((sum, r) => {
+    const horses = String(r.predictedHorses || "")
+      .split(",")
+      .map(n => n.trim())
+      .filter(Boolean);
+
+    return sum + new Set(horses).size;
+  }, 0);
+
+  const hitRate = predictedTotal
+    ? (hits / predictedTotal * 100).toFixed(1)
+    : "0.0";
+
   const message = total
-    ? `判定レース数：${total} ／ 3着以内に入った予想馬の合計：${hits}頭`
+    ? `判定レース数：${total} ／ 3着以内に入った予想馬：${hits}頭 ／ 予想馬の的中率：${hitRate}%`
     : "予想馬番と実際の1〜3着を登録すると、ここに集計されます。";
 
   const el = $("predictionStats");
