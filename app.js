@@ -43,17 +43,33 @@ function checkPredictedHorses(r) {
   };
 }
 function setText(id,v){$(id).textContent=v}
-function renderMetrics(){
-  function renderPredictionStats() {
+function renderMetrics() {
+  const all = stats(races);
+  const done = stats(settled());
+
+  setText("mRaces", all.count);
+  setText("mHit", pct(done.hit));
+  setText("mRoi", pct(done.roi));
+  setText("mProfit", yen(done.profit));
+
+  setText("bCount", done.count);
+  setText("bHit", pct(done.hit));
+  setText("bRoi", pct(done.roi));
+  setText("bTotals", yen(done.stake) + " / " + yen(done.payout));
+}
+
+function renderPredictionStats() {
   const list = settled().filter(r =>
-    r.actualFirst && r.actualSecond && r.actualThird &&
+    r.actualFirst &&
+    r.actualSecond &&
+    r.actualThird &&
     checkPredictedHorses(r) !== null
   );
 
   const total = list.length;
-
-  const hits = list.reduce((sum, r) =>
-    sum + checkPredictedHorses(r).hits, 0
+  const hits = list.reduce(
+    (sum, r) => sum + checkPredictedHorses(r).hits,
+    0
   );
 
   const message = total
@@ -62,10 +78,6 @@ function renderMetrics(){
 
   const el = $("predictionStats");
   if (el) el.textContent = message;
-}
- const all=stats(races), done=stats(settled());
- setText("mRaces",all.count);setText("mHit",pct(done.hit));setText("mRoi",pct(done.roi));setText("mProfit",yen(done.profit));
- setText("bCount",done.count);setText("bHit",pct(done.hit));setText("bRoi",pct(done.roi));setText("bTotals",yen(done.stake)+" / "+yen(done.payout));
 }
 function raceLabel(r){return `${r.date||"日付未入力"} ${r.venue||""} ${r.raceNo||""} ${r.raceName||""}`.trim()}
 function cardHTML(r) {
