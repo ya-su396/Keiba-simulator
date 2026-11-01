@@ -10,6 +10,38 @@ function pct(n){return Number.isFinite(n)?n.toFixed(1)+"%":"—"}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function settled(){return races.filter(r=>r.settled)}
 function stats(list){const stake=list.reduce((a,r)=>a+(+r.stake||0),0), payout=list.reduce((a,r)=>a+(+r.payout||0),0), hits=list.filter(r=>(+r.payout||0)>0).length;return {count:list.length,stake,payout,hits,hit:list.length?hits/list.length*100:NaN,roi:stake?payout/stake*100:NaN,profit:payout-stake}}
+function checkPredictedHorses(r) {
+  // 予想した馬番を配列にする
+  const predicted = String(r.predictedHorses || "")
+    .split(/[,、，\s]+/)
+    .map(n => n.trim())
+    .filter(n => /^\d+$/.test(n));
+
+  // 実際の1〜3着の馬番
+  const actual = [
+    r.actualFirst,
+    r.actualSecond,
+    r.actualThird
+  ]
+    .map(n => String(n || "").trim())
+    .filter(n => /^\d+$/.test(n));
+
+  // 結果が未入力なら判定しない
+  if (predicted.length === 0 || actual.length !== 3) {
+    return null;
+  }
+
+  // 予想した馬のうち、実際の1〜3着に入った頭数
+  const hits = new Set(predicted)
+    ? [...new Set(predicted)].filter(n => actual.includes(n)).length
+    : 0;
+
+  return {
+    hits,
+    total: 3,
+    result: `${hits}頭的中（3着以内）`
+  };
+}
 function setText(id,v){$(id).textContent=v}
 function renderMetrics(){
  const all=stats(races), done=stats(settled());
