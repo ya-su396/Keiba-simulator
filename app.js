@@ -779,7 +779,7 @@ window.importRaceBackup = function(file) {
 
   reader.readAsText(file);
 };
-// 過去GⅠ一括検証：CSVファイルの読み込み確認
+// 過去GⅠ一括検証：予想上位3頭の3着以内的中率を計算
 const bulkTestButton = document.getElementById("runBulkTest");
 const bulkTestFile = document.getElementById("bulkTestFile");
 const bulkTestStatus = document.getElementById("bulkTestStatus");
@@ -790,30 +790,263 @@ if (bulkTestButton && bulkTestFile) {
     const file = bulkTestFile.files[0];
 
     if (!file) {
-      bulkTestStatus.textContent = "先に検証用CSVファイルを選んでください。";
+      bulkTestStatus.textContent =
+        "先に検証用CSVファイルを選んでください。";
       return;
     }
 
     try {
-      const csvText = await file.text();
+      const csvText = (await file.text()).replace(/^\uFEFF/, "");
+
+      // カンマ区切りを解析（ダブルクォート内のカンマにも対応）
+      function parseCSVLine(line) {
+        const values = [];
+        let value = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              value += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === "," && !inQuotes) {
+            values.push(value.trim());
+            value = "";
+          } else {
+            value += char;
+          }
+        }
+
+        values.push(value.trim());
+        return values;
+      }
+
       const lines = csvText
         .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean);
+        .filter(line => line.trim() !== "");
 
       if (lines.length < 2) {
         throw new Error("CSVにデータ行がありません。");
       }
 
-      bulkTestStatus.textContent =
-        `CSVを読み込みました。全${lines.length - 1}行（ヘッダーを除く）。`;
+      const headers = parseCSVLine(lines[0]).map(h =>
+        h.trim().toLowerCase()
+      );
 
-      bulkTestResults.textContent =
-        "読み込み確認のみ完了しました。まだ予想の的中率は計算していません。";
+      const required = [
+        "racename",
+        "horseno",
+        "horsename",
+        "odds",
+        "form",
+        "distance",
+        "course",
+        "jockey",
+        "going",
+        "runningstyle",
+        "pace",
+        "actualrank"
+      ];
+
+      const missing = required.filter(h => !headers.includes(h));
+
+      if (missing.length > 0) {
+        throw new Error(
+          "CSVに必要な列がありません：" + missing.join(", ")
+        );
+      }
+
+      const column = name => headers.indexOf(name);
+
+      const races = new Map();
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCSVLine(lines[i]);
+
+        if (row.length !== headers.length) {
+          throw new Error(
+            `${i + 1}行目：列の数がヘッダーと一致しません。`
+          );
+        }
+
+        const raceName = row[column("racename")];
+        const no = row[column("horseno")];
+        const name = row[column("horsename")];
+        const odds = Number(row[column("odds")]);
+        const actualRank = Number(row[column("actualrank")]);
+
+        if (!raceName || !no || !name) {
+          throw new Error(`${i + 1}行目：レース名・馬番・馬名が必要です。`);
+        }
+
+        if (!Number.isFinite(odds) || odds <= 0) {
+          throw new Error(`${i + 1}行目：オッズは0より大きい数にしてください。`);
+        }
+
+        if (!Number.isInteger(actualRank) || actualRank < 1) {
+          throw new Error(`${i + 1}行目：実際の着順を確認してください。`);
+        }
+
+        const ratings = ["form", "distance", "course", "jockey", "going"]
+          .map(key => Number(row[column(key)]));
+
+        if (ratings.some(v => !Number.isFinite(v) || v < 1 || v > 5)) {
+          throw new Error(`${i + 1}行目：各評価は1〜5で入力してください。`);
+        }
+
+        const runningStyle = row[column("runningstyle")];
+        const pace = row[column("pace")];
+
+        if (!["逃げ", "先行", "差し", "追込"].includes(runningStyle)) {
+          throw new Error(
+            `${i + 1}行目：脚質は「逃げ・先行・差し・追込」のいずれかにしてください。`
+          );
+        }
+
+        if (!["slow", "fast"].includes(pace)) {
+          throw new Error(
+            `${i + 1}行目：ペースは slow または fast にしてください。`
+          );
+        }
+
+        const horse = {
+          no,
+          name,
+          odds,
+          form: ratings[0],
+          distance: ratings[1],
+          course: ratings[2],
+          jockey: ratings[3],
+          going: ratings[4],
+          runningStyle,
+          pace,
+          actualRank
+        };
+
+        if (!races.has(raceName)) {
+          races.set(raceName, []);
+        }
+
+        races.get(raceName).push(horse);
+      }
+
+      // 通常の予想画面と同じ重みを使用
+      let ow = Number(document.getElementById("oddsWeight")?.value ?? 50);
+      let fw = Number(document.getElementById("formWeight")?.value ?? 50);
+
+      const weightTotal = ow + fw || 1;
+      ow /= weightTotal;
+      fw /= weightTotal;
+
+      let checkedRaces = 0;
+      let predictedCount = 0;
+      let hitCount = 0;
+      const details = [];
+
+      for (const [raceName, horses] of races) {
+        if (horses.length < 3) {
+          details.push(
+            `<p>${raceName}：出走馬が3頭未満のため検証対象外</p>`
+          );
+          continue;
+        }
+
+        const pace = horses[0].pace;
+
+        if (horses.some(h => h.pace !== pace)) {
+          throw new Error(
+            `${raceName}：同じレースのペース設定を統一してください。`
+          );
+        }
+
+        const market = marketProbabilities(horses);
+        const maxMarket = Math.max(...market);
+
+        const analyzed = horses.map((h, i) => {
+          const scores = {
+            form: ratingScore(h.form),
+            distance: ratingScore(h.distance),
+            course: ratingScore(h.course),
+            jockey: ratingScore(h.jockey),
+            odds: market[i] / maxMarket * 100,
+            going: ratingScore(h.going)
+          };
+
+          const otherWeight = 0.30;
+          let paceBonus = 0;
+
+          if (pace === "slow") {
+            if (h.runningStyle === "逃げ") paceBonus = 8;
+            else if (h.runningStyle === "先行") paceBonus = 5;
+            else if (h.runningStyle === "差し") paceBonus = -2;
+            else if (h.runningStyle === "追込") paceBonus = -4;
+          } else if (pace === "fast") {
+            if (h.runningStyle === "逃げ") paceBonus = -5;
+            else if (h.runningStyle === "先行") paceBonus = -2;
+            else if (h.runningStyle === "差し") paceBonus = 5;
+            else if (h.runningStyle === "追込") paceBonus = 8;
+          }
+
+          const total =
+            scores.odds * ow +
+            scores.form * fw +
+            scores.distance * otherWeight * (0.30 / 0.70) +
+            scores.course * otherWeight * (0.30 / 0.70) +
+            scores.jockey * otherWeight * (0.20 / 0.70) +
+            scores.going * otherWeight * (0.20 / 0.70) +
+            paceBonus;
+
+          return { ...h, total };
+        });
+
+        // 予想スコア順に並べ、上位3頭を予想馬とする
+        const ranked = analyzed.sort((a, b) => b.total - a.total);
+        const predicted = ranked.slice(0, 3);
+        const hits = predicted.filter(h => h.actualRank <= 3);
+
+        checkedRaces++;
+        predictedCount += predicted.length;
+        hitCount += hits.length;
+
+        details.push(
+          `<p><strong>${raceName}</strong>：予想上位3頭のうち` +
+          `${hits.length}頭が3着以内` +
+          `<br>予想馬：${predicted.map(h =>
+            `${h.no}番 ${h.name}`
+          ).join("、")}</p>`
+        );
+      }
+
+      if (checkedRaces === 0) {
+        throw new Error(
+          "検証できるレースがありません。各レースに3頭以上の出走馬を入力してください。"
+        );
+      }
+
+      const hitRate = hitCount / predictedCount * 100;
+
+      bulkTestStatus.textContent =
+        `検証完了：${checkedRaces}レースを計算しました。`;
+
+      bulkTestResults.innerHTML = `
+        <h2>一括検証結果</h2>
+        <p>検証レース数：${checkedRaces}レース</p>
+        <p>予想馬の合計：${predictedCount}頭分</p>
+        <p>3着以内に入った予想馬：${hitCount}頭分</p>
+        <p><strong>予想馬の3着以内的中率：${hitRate.toFixed(1)}%</strong></p>
+        <hr>
+        <h3>レース別結果</h3>
+        ${details.join("")}
+      `;
 
     } catch (error) {
       bulkTestStatus.textContent =
-        "CSVを読み込めませんでした：" + error.message;
+        "一括検証に失敗しました：" + error.message;
       bulkTestResults.textContent = "";
     }
   });
