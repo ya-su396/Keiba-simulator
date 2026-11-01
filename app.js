@@ -44,6 +44,25 @@ function checkPredictedHorses(r) {
 }
 function setText(id,v){$(id).textContent=v}
 function renderMetrics(){
+  function renderPredictionStats() {
+  const list = settled().filter(r =>
+    r.actualFirst && r.actualSecond && r.actualThird &&
+    checkPredictedHorses(r) !== null
+  );
+
+  const total = list.length;
+
+  const hits = list.reduce((sum, r) =>
+    sum + checkPredictedHorses(r).hits, 0
+  );
+
+  const message = total
+    ? `判定レース数：${total} ／ 3着以内に入った予想馬の合計：${hits}頭`
+    : "予想馬番と実際の1〜3着を登録すると、ここに集計されます。";
+
+  const el = $("predictionStats");
+  if (el) el.textContent = message;
+}
  const all=stats(races), done=stats(settled());
  setText("mRaces",all.count);setText("mHit",pct(done.hit));setText("mRoi",pct(done.roi));setText("mProfit",yen(done.profit));
  setText("bCount",done.count);setText("bHit",pct(done.hit));setText("bRoi",pct(done.roi));setText("bTotals",yen(done.stake)+" / "+yen(done.payout));
@@ -71,6 +90,7 @@ function renderAll(){
  renderMetrics();
  renderRaces();
  renderBacktest();
+ renderPredictionStats();
 }
 function resetForm(){ $("raceForm").reset();$("raceId").value="";$("modelVersion").value="手動予想 v1";$("stake").value=0;$("payout").value=0;$("formTitle").textContent="レースを登録";$("cancelEdit").classList.add("hidden")}
 function editRace(id){const r=races.find(x=>x.id===id);if(!r)return; $("raceId").value=r.id;fields.forEach(k=>{const el=$(fieldId(k));el.type==="checkbox"?$(fieldId(k)).checked=!!r[k]:$(fieldId(k)).value=r[k]??""});$("actualFirst").value = r.actualFirst ?? "";
