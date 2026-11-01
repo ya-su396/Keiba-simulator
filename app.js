@@ -41,7 +41,37 @@ function fieldId(k){return ({date:"raceDate",venue:"venue",raceNo:"raceNo",raceN
 function showView(id){document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===id))}
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
 $("quickAdd").onclick=()=>{resetForm();showView("races");$("raceDate").value=new Date().toISOString().slice(0,10);window.scrollTo({top:0,behavior:"smooth"})};
-$("raceForm").addEventListener("submit",e=>{e.preventDefault();const id=$("raceId").value||uid();const r={id};fields.forEach(k=>{r[k]=k==="settled"?$(fieldId(k)).checked:k==="stake"||k==="payout"?Math.max(0,Number($(fieldId(k)).value)||0):$(fieldId(k)).value.trim()});const idx=races.findIndex(x=>x.id===id);if(idx>=0)races[idx]=r;else races.push(r);save();resetForm();showView("races")});
+$("raceForm").addEventListener("submit", e => {
+  e.preventDefault();
+
+  const id = $("raceId").value || uid();
+  const r = { id };
+
+  fields.forEach(k => {
+    r[k] = k === "settled"
+      ? $(fieldId(k)).checked
+      : k === "stake" || k === "payout"
+        ? Math.max(0, Number($(fieldId(k)).value) || 0)
+        : $(fieldId(k)).value.trim();
+  });
+
+  // 実際の着順を保存
+  r.actualFirst = $("actualFirst").value;
+  r.actualSecond = $("actualSecond").value;
+  r.actualThird = $("actualThird").value;
+
+  const idx = races.findIndex(x => x.id === id);
+
+  if (idx >= 0) {
+    races[idx] = r;
+  } else {
+    races.push(r);
+  }
+
+  save();
+  resetForm();
+  showView("races");
+});
 $("cancelEdit").onclick=resetForm;
 document.addEventListener("click",e=>{const edit=e.target.closest("[data-edit]");if(edit)editRace(edit.dataset.edit);const del=e.target.closest("[data-delete]");if(del&&confirm("このレースを削除しますか？")){races=races.filter(r=>r.id!==del.dataset.delete);save()}});
 $("raceSearch").addEventListener("input",renderRaces);
