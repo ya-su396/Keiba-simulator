@@ -2,8 +2,7 @@ const KEY = "keiba-sim-v1";
 let races = load();
 let range = {from:"",to:""};
 const $ = id => document.getElementById(id);
-const fields = ["date","venue","raceNo","raceName","course","going","prediction","modelVersion","stake","payout","settled","notes"];
-function load(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return []}}
+const fields = ["date","venue","raceNo","raceName","course","going","prediction","modelVersion","stake","payout","settled","notes","predictedHorses"];function load(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return []}}
 function save(){localStorage.setItem(KEY,JSON.stringify(races));renderAll()}
 function uid(){return "r_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8)}
 function yen(n){return new Intl.NumberFormat("ja-JP",{style:"currency",currency:"JPY",maximumFractionDigits:0}).format(Number(n)||0)}
