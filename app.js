@@ -696,6 +696,7 @@ $("savePredictionRace").onclick = () => {
     course: "",
     going: "",
     prediction: top,
+    predictedHorses: lastPrediction.map(h => h.no).join(","),
     modelVersion: "AI予想 v3",
     stake: 0,
     payout: 0,
