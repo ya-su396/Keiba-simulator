@@ -218,7 +218,7 @@ const random = seededRandom(seed);
 // v3予想本体
 function calculatePrediction() {
   const horses = parseHorses();
-　  const pace = $("racePace").value;
+  const pace = $("racePace").value;
  
   let ow = Number($("oddsWeight").value);
   let fw = Number($("formWeight").value);
