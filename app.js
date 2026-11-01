@@ -98,24 +98,46 @@ function makeCSV() {
     )
   ].join("\r\n");
 }
-$("exportCsv").onclick = () => {
+$("exportCsv").onclick = async () => {
   try {
-    const blob = new Blob([makeCSV()], {
+    const csv = makeCSV();
+    const file = new File(
+      [csv],
+      "keiba-races.csv",
+      { type: "text/csv;charset=utf-8;" }
+    );
+
+    // iPadのSafariで共有シートを開く
+    if (
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [file] })
+    ) {
+      await navigator.share({
+        files: [file],
+        title: "競馬レースデータCSV"
+      });
+      return;
+    }
+
+    // 共有機能が使えない場合は通常のダウンロード
+    const blob = new Blob([csv], {
       type: "text/csv;charset=utf-8;"
     });
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-
     a.href = url;
     a.download = "keiba-races.csv";
     document.body.appendChild(a);
     a.click();
     a.remove();
 
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch (error) {
-    alert("CSV出力に失敗しました：" + error.message);
+    if (error.name !== "AbortError") {
+      alert("CSV出力に失敗しました：" + error.message);
+    }
   }
 };
 function parseCSV(text){text=text.replace(/^\\uFEFF/,"");const rows=[];let row=[],cell="",quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){cell+='"';i++}else if(c==='"')quoted=false;else cell+=c}else if(c==='"')quoted=true;else if(c===","){row.push(cell);cell=""}else if(c==="\\n"){row.push(cell.replace(/\\r$/,""));rows.push(row);row=[];cell=""}else cell+=c}if(cell.length||row.length){row.push(cell.replace(/\\r$/,""));rows.push(row)}return rows}
