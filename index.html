@@ -56,7 +56,12 @@
         <label>払戻額（円）<input id="payout" type="number" min="0" step="10" value="0" required></label>
         <label class="check-label"><input id="settled" type="checkbox"> 結果確定済み（成績に反映）</label>
       </div>
-      <label>買い目・結果メモ<textarea id="notes" rows="3" placeholder="例：馬連 6-9 500円、3連複 6-9-10 500円／結果：..."></textarea></label>
+            <div class="form-grid">
+        <label>実際の1着（馬番）<input id="actualFirst" type="number" min="1" placeholder="例：6"></label>
+        <label>実際の2着（馬番）<input id="actualSecond" type="number" min="1" placeholder="例：9"></label>
+        <label>実際の3着（馬番）<input id="actualThird" type="number" min="1" placeholder="例：10"></label>
+      </div>
+      <label>買い目・結果メモ<textarea id="notes" rows="3" placeholder="例：馬連 6-9 500円、3連複 6-9-10 500円"></textarea></label>
       <div class="actions"><button class="primary" type="submit">保存</button><button type="button" id="cancelEdit" class="secondary hidden">編集をキャンセル</button></div>
     </form>
   </div>
