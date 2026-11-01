@@ -38,8 +38,23 @@ function resetForm(){ $("raceForm").reset();$("raceId").value="";$("modelVersion
 function editRace(id){const r=races.find(x=>x.id===id);if(!r)return; $("raceId").value=r.id;fields.forEach(k=>{const el=$(fieldId(k));el.type==="checkbox"?$(fieldId(k)).checked=!!r[k]:$(fieldId(k)).value=r[k]??""});$("actualFirst").value = r.actualFirst ?? "";
 $("actualSecond").value = r.actualSecond ?? "";
 $("actualThird").value = r.actualThird ?? "";$("formTitle").textContent="レースを編集";$("cancelEdit").classList.remove("hidden");showView("races");window.scrollTo({top:0,behavior:"smooth"})}
-function fieldId(k){return ({date:"raceDate",venue:"venue",raceNo:"raceNo",raceName:"raceName",course:"course",going:"going",prediction:"prediction",modelVersion:"modelVersion",stake:"stake",payout:"payout",settled:"settled",notes:"notes"})[k]}
-function showView(id){document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===id))}
+function fieldId(k){
+  return ({
+    date:"raceDate",
+    venue:"venue",
+    raceNo:"raceNo",
+    raceName:"raceName",
+    course:"course",
+    going:"going",
+    prediction:"prediction",
+    predictedHorses:"predictedHorses",
+    modelVersion:"modelVersion",
+    stake:"stake",
+    payout:"payout",
+    settled:"settled",
+    notes:"notes"
+  })[k];
+}function showView(id){document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===id))}
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
 $("quickAdd").onclick=()=>{resetForm();showView("races");$("raceDate").value=new Date().toISOString().slice(0,10);window.scrollTo({top:0,behavior:"smooth"})};
 $("raceForm").addEventListener("submit", e => {
