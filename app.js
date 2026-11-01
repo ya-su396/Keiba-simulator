@@ -779,3 +779,42 @@ window.importRaceBackup = function(file) {
 
   reader.readAsText(file);
 };
+// 過去GⅠ一括検証：CSVファイルの読み込み確認
+const bulkTestButton = document.getElementById("runBulkTest");
+const bulkTestFile = document.getElementById("bulkTestFile");
+const bulkTestStatus = document.getElementById("bulkTestStatus");
+const bulkTestResults = document.getElementById("bulkTestResults");
+
+if (bulkTestButton && bulkTestFile) {
+  bulkTestButton.addEventListener("click", async function () {
+    const file = bulkTestFile.files[0];
+
+    if (!file) {
+      bulkTestStatus.textContent = "先に検証用CSVファイルを選んでください。";
+      return;
+    }
+
+    try {
+      const csvText = await file.text();
+      const lines = csvText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      if (lines.length < 2) {
+        throw new Error("CSVにデータ行がありません。");
+      }
+
+      bulkTestStatus.textContent =
+        `CSVを読み込みました。全${lines.length - 1}行（ヘッダーを除く）。`;
+
+      bulkTestResults.textContent =
+        "読み込み確認のみ完了しました。まだ予想の的中率は計算していません。";
+
+    } catch (error) {
+      bulkTestStatus.textContent =
+        "CSVを読み込めませんでした：" + error.message;
+      bulkTestResults.textContent = "";
+    }
+  });
+}
