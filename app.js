@@ -50,6 +50,12 @@ function renderMetrics(){
 }
 function raceLabel(r){return `${r.date||"日付未入力"} ${r.venue||""} ${r.raceNo||""} ${r.raceName||""}`.trim()}
 function cardHTML(r){return `<div class="race-card"><div><div class="race-title">${esc(raceLabel(r))} ${r.settled?'<span class="status">確定</span>':'<span class="status pending">未確定</span>'}</div><div class="race-sub">${esc(r.course||"")}${r.going?"・"+esc(r.going):""}　購入 ${yen(r.stake)} / 払戻 ${yen(r.payout)}</div><div class="race-sub">予想：${esc(r.prediction||"未入力")}　モデル：${esc(r.modelVersion||"—")}</div></div><div class="race-actions"><button data-edit="${r.id}">編集</button><button data-delete="${r.id}" class="secondary">削除</button></div></div>`}
+${(() => {
+  const result = checkPredictedHorses(r);
+  return result
+    ? `<div class="race-sub">予想結果：${result.hits}頭が3着以内！</div>`
+    : "";
+})()}
 function renderRaces(){
  const q=($("raceSearch").value||"").toLowerCase();
  const list=[...races].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).filter(r=>raceLabel(r).toLowerCase().includes(q));
