@@ -97,7 +97,8 @@ function makeCSV() {
       ).join(",")
     )
   ].join("\r\n");
-}function parseCSV(text){text=text.replace(/^\\uFEFF/,"");const rows=[];let row=[],cell="",quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){cell+='"';i++}else if(c==='"')quoted=false;else cell+=c}else if(c==='"')quoted=true;else if(c===","){row.push(cell);cell=""}else if(c==="\\n"){row.push(cell.replace(/\\r$/,""));rows.push(row);row=[];cell=""}else cell+=c}if(cell.length||row.length){row.push(cell.replace(/\\r$/,""));rows.push(row)}return rows}
+}
+function parseCSV(text){text=text.replace(/^\\uFEFF/,"");const rows=[];let row=[],cell="",quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){cell+='"';i++}else if(c==='"')quoted=false;else cell+=c}else if(c==='"')quoted=true;else if(c===","){row.push(cell);cell=""}else if(c==="\\n"){row.push(cell.replace(/\\r$/,""));rows.push(row);row=[];cell=""}else cell+=c}if(cell.length||row.length){row.push(cell.replace(/\\r$/,""));rows.push(row)}return rows}
 $("importCsv").onclick=async()=>{const file=$("importFile").files[0];if(!file){$("importStatus").textContent="先にCSVファイルを選んでください。";return}try{const rows=parseCSV(await file.text());const headers=rows.shift();let count=0;for(const cells of rows){if(!cells.length||cells.every(v=>!v))continue;const o={};headers.forEach((h,i)=>o[h]=cells[i]??"");if(!o.id)o.id=uid();o.settled=o.settled===true||o.settled==="true";o.stake=Number(o.stake)||0;o.payout=Number(o.payout)||0;const idx=races.findIndex(r=>r.id===o.id);if(idx>=0)races[idx]={...races[idx],...o};else races.push(o);count++}save();$("importStatus").textContent=`${count}件を読み込みました。`}catch(e){$("importStatus").textContent="読み込みに失敗しました。CSV形式を確認してください。"}};
 $("clearAll").onclick=()=>{if(confirm("すべての登録データを削除します。この操作は取り消せません。")){races=[];save();resetForm()}};
 renderAll();
