@@ -271,7 +271,7 @@ function calculatePrediction() {
     return {
       ...h,
       scores,
-      total: adjustedScore
+      total: adjustedScore + paceBonus * 10
     };
   });
 
