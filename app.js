@@ -100,7 +100,8 @@ function parseHorses() {
     }
 
     const [no, name] = p;
-    const odds = Number(p[2]);
+const odds = Number(p[2]);
+const runningStyle = p[8] || "差し";
 
     const values = [
       Number(p[3]),
@@ -125,15 +126,16 @@ function parseHorses() {
     numbers.add(no);
 
     horses.push({
-      no,
-      name,
-      odds,
-      form: values[0],
-      distance: values[1],
-      course: values[2],
-      jockey: values[3],
-      going: values[4]
-    });
+  no,
+  name,
+  odds,
+  form: values[0],
+  distance: values[1],
+  course: values[2],
+  jockey: values[3],
+  going: values[4],
+  runningStyle
+});
   });
 
   if (horses.length < 3) {
@@ -216,7 +218,8 @@ const random = seededRandom(seed);
 // v3予想本体
 function calculatePrediction() {
   const horses = parseHorses();
-
+　  const pace = $("racePace").value;
+ 
   let ow = Number($("oddsWeight").value);
   let fw = Number($("formWeight").value);
 
@@ -241,13 +244,29 @@ function calculatePrediction() {
     // 既存のオッズ・近走重視スライダーも利用
     const otherWeight = 0.30;
 
+       // ペースと脚質の相性を評価
+    let paceBonus = 0;
+
+    if (pace === "slow") {
+      if (h.runningStyle === "逃げ") paceBonus = 8;
+      else if (h.runningStyle === "先行") paceBonus = 5;
+      else if (h.runningStyle === "差し") paceBonus = -2;
+      else if (h.runningStyle === "追込") paceBonus = -4;
+    } else if (pace === "fast") {
+      if (h.runningStyle === "逃げ") paceBonus = -5;
+      else if (h.runningStyle === "先行") paceBonus = -2;
+      else if (h.runningStyle === "差し") paceBonus = 5;
+      else if (h.runningStyle === "追込") paceBonus = 8;
+    }
+
     const adjustedScore =
       scores.odds * ow +
       scores.form * fw +
       scores.distance * otherWeight * (0.30 / 0.70) +
       scores.course * otherWeight * (0.30 / 0.70) +
       scores.jockey * otherWeight * (0.20 / 0.70) +
-      scores.going * otherWeight * (0.20 / 0.70);
+      scores.going * otherWeight * (0.20 / 0.70) +
+      paceBonus;
 
     return {
       ...h,
