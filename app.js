@@ -68,13 +68,64 @@ function renderMetrics(){
  setText("bCount",done.count);setText("bHit",pct(done.hit));setText("bRoi",pct(done.roi));setText("bTotals",yen(done.stake)+" / "+yen(done.payout));
 }
 function raceLabel(r){return `${r.date||"日付未入力"} ${r.venue||""} ${r.raceNo||""} ${r.raceName||""}`.trim()}
-function cardHTML(r){return `<div class="race-card"><div><div class="race-title">${esc(raceLabel(r))} ${r.settled?'<span class="status">確定</span>':'<span class="status pending">未確定</span>'}</div><div class="race-sub">${esc(r.course||"")}${r.going?"・"+esc(r.going):""}　購入 ${yen(r.stake)} / 払戻 ${yen(r.payout)}</div><div class="race-sub">予想：${esc(r.prediction||"未入力")}　モデル：${esc(r.modelVersion||"—")}</div></div><div class="race-actions"><button data-edit="${r.id}">編集</button><button data-delete="${r.id}" class="secondary">削除</button></div></div>`}
-${(() => {
+function cardHTML(r) {
   const result = checkPredictedHorses(r);
-  return result
+
+  const resultHTML = result
     ? `<div class="race-sub">予想結果：${result.hits}頭が3着以内！</div>`
     : "";
-})()}
+
+  return `
+    <div class="race-card">
+      <div>
+        <div class="race-title">
+          ${esc(raceLabel(r))}
+          ${r.settled
+            ? '<span class="status">確定</span>'
+            : '<span class="status pending">未確定</span>'}
+        </div>
+
+        <div class="race-sub">
+          ${esc(r.course || "")}
+          ${r.going ? "・" + esc(r.going) : ""}
+          購入 ${yen(r.stake)} / 払戻 ${yen(r.payout)}
+        </div>
+
+        <div class="race-sub">
+          予想：${esc(r.prediction || "未入力")}
+          モデル：${esc(r.modelVersion || "—")}
+        </div>
+
+        ${resultHTML}
+      </div>
+
+      <div class="race-actions">
+        <button data-edit="${r.id}">編集</button>
+        <button data-delete="${r.id}" class="secondary">削除</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderRaces() {
+  const q = ($("raceSearch").value || "").toLowerCase();
+
+  const list = [...races]
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .filter(r => raceLabel(r).toLowerCase().includes(q));
+
+  $("raceList").innerHTML = list.length
+    ? list.map(cardHTML).join("")
+    : '<div class="empty">レースはまだ登録されていません。</div>';
+
+  $("recentRaces").innerHTML =
+    [...races]
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+      .slice(0, 5)
+      .map(cardHTML)
+      .join("") ||
+    '<div class="empty">まだデータがありません。レースを登録して始めましょう。</div>';
+}
 function renderRaces(){
  const q=($("raceSearch").value||"").toLowerCase();
  const list=[...races].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).filter(r=>raceLabel(r).toLowerCase().includes(q));
