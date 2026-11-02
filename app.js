@@ -1054,8 +1054,11 @@ if (pace && !["slow", "fast"].includes(pace)) {
       `;
 
     } catch (error) {
+      console.error("一括検証エラー:", error);
+
       bulkTestStatus.textContent =
         "一括検証に失敗しました：" + error.message;
+
       bulkTestResults.textContent = "";
     }
   });
