@@ -41,7 +41,7 @@ def main():
     )
 
     with urlopen(request, timeout=30) as response:
-        html = response.read().decode("utf-8", errors="replace")
+        html = response.read().decode("cp932", errors="replace")
 
     parser = TableParser()
     parser.feed(html)
