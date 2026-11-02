@@ -2,7 +2,7 @@ import csv
 from urllib.request import Request, urlopen
 from html.parser import HTMLParser
 
-URL = "https://www.jra.go.jp/datafile/seiseki/g1/osaka/result/osaka2025.html"
+URL = "https://www.jra.go.jp/datafile/seiseki/g1/arima/result/arima2025.html"
 
 
 class TableParser(HTMLParser):
@@ -75,7 +75,7 @@ def main():
         jockey = row[jockey_i] if jockey_i is not None and len(row) > jockey_i else ""
 
         output.append([
-            "大阪杯2025",
+            "有馬記念2025,
             number,
             name,
             "",
@@ -93,7 +93,7 @@ def main():
         raise ValueError("馬の結果を取り出せませんでした")
 
     with open(
-        "osaka_hai_2025_official.csv",
+        "arima_kinen_2025_official.csv",
         "w",
         newline="",
         encoding="utf-8-sig"
