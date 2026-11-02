@@ -892,28 +892,37 @@ if (bulkTestButton && bulkTestFile) {
           throw new Error(`${i + 1}行目：実際の着順を確認してください。`);
         }
 
-        const ratings = ["form", "distance", "course", "jockey", "going"]
-          .map(key => Number(row[column(key)]));
+        const ratingKeys = ["form", "distance", "course", "jockey", "going"];
 
-        if (ratings.some(v => !Number.isFinite(v) || v < 1 || v > 5)) {
-          throw new Error(`${i + 1}行目：各評価は1〜5で入力してください。`);
-        }
+const ratings = ratingKeys.map(key => {
+  const value = row[column(key)];
+  if (value === undefined || String(value).trim() === "") {
+    return null;
+  }
 
-        const runningStyle = row[column("runningstyle")];
-        const pace = row[column("pace")];
+  const number = Number(value);
 
-        if (!["逃げ", "先行", "差し", "追込"].includes(runningStyle)) {
-          throw new Error(
-            `${i + 1}行目：脚質は「逃げ・先行・差し・追込」のいずれかにしてください。`
-          );
-        }
+  if (!Number.isFinite(number) || number < 1 || number > 5) {
+    throw new Error(`${i + 1}行目：評価は空欄、または1〜5で入力してください。`);
+  }
 
-        if (!["slow", "fast"].includes(pace)) {
-          throw new Error(
-            `${i + 1}行目：ペースは slow または fast にしてください。`
-          );
-        }
+  return number;
+});
 
+       const runningStyle = row[column("runningstyle")];
+const pace = row[column("pace")];
+
+if (runningStyle && !["逃げ", "先行", "差し", "追込"].includes(runningStyle)) {
+  throw new Error(
+    `${i + 1}行目：脚質は「逃げ・先行・差し・追込」のいずれかにしてください。`
+  );
+}
+
+if (pace && !["slow", "fast"].includes(pace)) {
+  throw new Error(
+    `${i + 1}行目：ペースは slow または fast にしてください。`
+  );
+}
         const horse = {
           no,
           name,
@@ -969,13 +978,13 @@ if (bulkTestButton && bulkTestFile) {
 
         const analyzed = horses.map((h, i) => {
           const scores = {
-            form: ratingScore(h.form),
-            distance: ratingScore(h.distance),
-            course: ratingScore(h.course),
-            jockey: ratingScore(h.jockey),
-            odds: market[i] / maxMarket * 100,
-            going: ratingScore(h.going)
-          };
+  form: h.form == null ? 50 : ratingScore(h.form),
+  distance: h.distance == null ? 50 : ratingScore(h.distance),
+  course: h.course == null ? 50 : ratingScore(h.course),
+  jockey: h.jockey == null ? 50 : ratingScore(h.jockey),
+  odds: market[i] / maxMarket * 100,
+  going: h.going == null ? 50 : ratingScore(h.going)
+};
 
           const otherWeight = 0.30;
           let paceBonus = 0;
