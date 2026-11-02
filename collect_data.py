@@ -4,6 +4,14 @@ from html.parser import HTMLParser
 
 URL = "https://www.jra.go.jp/datafile/seiseki/g1/arima/result/arima2025.html"
 
+# 2025年有馬記念の確定単勝オッズ
+ODDS = {
+    "1": 29.7, "2": 26.6, "3": 12.7, "4": 3.8,
+    "5": 3.3, "6": 5.8, "7": 122.5, "8": 154.1,
+    "9": 3.8, "10": 111.5, "11": 53.5, "12": 111.5,
+    "13": 50.3, "14": 174.2, "15": 180.3, "16": 35.4
+}
+
 
 class TableParser(HTMLParser):
     def __init__(self):
@@ -72,13 +80,19 @@ def main():
         if not rank.isdigit() or not number.isdigit() or not name:
             continue
 
-        jockey = row[jockey_i] if jockey_i is not None and len(row) > jockey_i else ""
+        jockey = (
+            row[jockey_i]
+            if jockey_i is not None and len(row) > jockey_i
+            else ""
+        )
+
+        odds = ODDS.get(number, "")
 
         output.append([
             "有馬記念2025",
             number,
             name,
-            "",
+            odds,
             "",
             "",
             "",
