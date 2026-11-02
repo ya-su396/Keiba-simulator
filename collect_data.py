@@ -75,7 +75,7 @@ def main():
         jockey = row[jockey_i] if jockey_i is not None and len(row) > jockey_i else ""
 
         output.append([
-            "有馬記念2025,
+            "有馬記念2025",
             number,
             name,
             "",
