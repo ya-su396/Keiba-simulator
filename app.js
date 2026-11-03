@@ -784,19 +784,29 @@ const bulkTestButton = document.getElementById("runBulkTest");
 const bulkTestFile = document.getElementById("bulkTestFile");
 const bulkTestStatus = document.getElementById("bulkTestStatus");
 const bulkTestResults = document.getElementById("bulkTestResults");
+const BUILTIN_TEST_CSV = `raceName,horseNo,horseName,odds,form,distance,course,jockey,going,runningStyle,pace,actualRank
+有馬記念2025,1,サンプル馬1,3.0,3,3,3,3,3,,,1
+`;
+
 
 if (bulkTestButton && bulkTestFile) {
   bulkTestButton.addEventListener("click", async function () {
     const file = bulkTestFile.files[0];
+const useSample = this.dataset.useSample === "true";
 
-    if (!file) {
-      bulkTestStatus.textContent =
-        "先に検証用CSVファイルを選んでください。";
-      return;
-    }
+if (!file && !useSample) {
+  bulkTestStatus.textContent =
+    "CSVファイルを選ぶか、内蔵データボタンを押してください。";
+  return;
+}
 
-    try {
-      const csvText = (await file.text()).replace(/^\uFEFF/, "");
+try {
+  const csvText = (useSample
+    ? BUILTIN_TEST_CSV
+    : await file.text()
+  ).replace(/^\uFEFF/, "");
+
+  this.dataset.useSample = "false";
 
       // カンマ区切りを解析（ダブルクォート内のカンマにも対応）
       function parseCSVLine(line) {
