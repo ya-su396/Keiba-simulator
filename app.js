@@ -786,6 +786,8 @@ const bulkTestStatus = document.getElementById("bulkTestStatus");
 const bulkTestResults = document.getElementById("bulkTestResults");
 const BUILTIN_TEST_CSV = `raceName,horseNo,horseName,odds,form,distance,course,jockey,going,runningStyle,pace,actualRank
 有馬記念2025,1,サンプル馬1,3.0,3,3,3,3,3,,,1
+有馬記念2025,2,サンプル馬2,5.0,4,3,3,3,3,,,2
+有馬記念2025,3,サンプル馬3,8.0,2,3,3,3,3,,,3
 `;
 
 
