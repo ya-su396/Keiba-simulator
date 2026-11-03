@@ -1082,3 +1082,4 @@ if (loadSampleTestButton && bulkTestButton) {
     bulkTestButton.click();
   });
 }
+console.log("サンプルボタンの処理を読み込みました");
