@@ -1063,3 +1063,12 @@ if (pace && !["slow", "fast"].includes(pace)) {
     }
   });
 }
+// 内蔵サンプルデータ読み込みボタン
+const loadSampleTestButton = document.getElementById("loadSampleTest");
+
+if (loadSampleTestButton && bulkTestButton) {
+  loadSampleTestButton.addEventListener("click", function () {
+    bulkTestButton.dataset.useSample = "true";
+    bulkTestButton.click();
+  });
+}
