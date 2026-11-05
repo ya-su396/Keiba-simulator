@@ -1114,3 +1114,172 @@ if (loadSampleTestButton && bulkTestButton) {
   });
 }
 console.log("サンプルボタンの処理を読み込みました");
+// フェブラリーS過去データ分析
+async function loadFebAnalysis() {
+  const status = document.getElementById("febDataStatus");
+  const summary = document.getElementById("febSummary");
+  const popularity = document.getElementById("febPopularity");
+  const corner = document.getElementById("febCorner");
+  const positionChange = document.getElementById("febPositionChange");
+
+  if (!status || status.dataset.loaded === "true") return;
+
+  status.textContent = "CSVを読み込んでいます...";
+
+  try {
+    const response = await fetch("./feb_results_clean.csv");
+    if (!response.ok) {
+      throw new Error("CSVファイルが見つかりません");
+    }
+
+    const csv = (await response.text()).replace(/^\uFEFF/, "");
+    const lines = csv.trim().split(/\r?\n/);
+
+    function parseLine(line) {
+      const result = [];
+      let value = "";
+      let quoted = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+          if (quoted && line[i + 1] === '"') {
+            value += '"';
+            i++;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (char === "," && !quoted) {
+          result.push(value.trim());
+          value = "";
+        } else {
+          value += char;
+        }
+      }
+
+      result.push(value.trim());
+      return result;
+    }
+
+    const headers = parseLine(lines[0]);
+    const rows = lines.slice(1).filter(line => line.trim()).map(line => {
+      const values = parseLine(line);
+      const item = {};
+      headers.forEach((header, index) => {
+        item[header] = values[index] ?? "";
+      });
+      return item;
+    });
+
+    const number = value => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const total = rows.length;
+    const years = new Set(rows.map(row => row["年"])).size;
+
+    summary.innerHTML = `
+      <p>収録頭数：<strong>${total}頭</strong></p>
+      <p>収録年数：<strong>${years}年分</strong></p>
+    `;
+
+    function makeTable(title, data) {
+      if (!data.length) return "<p>データがありません。</p>";
+
+      return `
+        <h3>${title}</h3>
+        <table>
+          <thead>
+            <tr>${Object.keys(data[0]).map(key => `<th>${key}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${data.map(item => `
+              <tr>${Object.values(item).map(value => `<td>${value}</td>`).join("")}</tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function makeStats(key, label) {
+      const groups = {};
+
+      rows.forEach(row => {
+        const value = number(row[key]);
+        const rank = number(row["着順"]);
+
+        if (value === null || rank === null) return;
+
+        const name = label(value);
+        if (!groups[name]) {
+          groups[name] = { count: 0, wins: 0, top3: 0, rankTotal: 0 };
+        }
+
+        groups[name].count++;
+        groups[name].rankTotal += rank;
+        if (rank === 1) groups[name].wins++;
+        if (rank <= 3) groups[name].top3++;
+      });
+
+      return Object.entries(groups)
+        .map(([name, stat]) => ({
+          [key]: name,
+          頭数: stat.count,
+          平均着順: (stat.rankTotal / stat.count).toFixed(2),
+          優勝: stat.wins,
+          "3着以内": stat.top3
+        }));
+    }
+
+    const popularityStats = makeStats("単勝人気", value => `${value}番人気`);
+    popularity.innerHTML = makeTable("単勝人気別の成績", popularityStats);
+
+    const cornerStats = makeStats("4コーナー位置", value => `${value}番手グループ`);
+    corner.innerHTML = makeTable("4コーナー位置別の成績", cornerStats);
+
+    const changes = {};
+    rows.forEach(row => {
+      const three = number(row["3コーナー位置"]);
+      const four = number(row["4コーナー位置"]);
+      const rank = number(row["着順"]);
+
+      if (three === null || four === null || rank === null) return;
+
+      const diff = three - four;
+      if (!changes[diff]) {
+        changes[diff] = { count: 0, wins: 0, top3: 0 };
+      }
+
+      changes[diff].count++;
+      if (rank === 1) changes[diff].wins++;
+      if (rank <= 3) changes[diff].top3++;
+    });
+
+    const changeStats = Object.entries(changes)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([diff, stat]) => ({
+        位置変化: Number(diff) > 0 ? `前進 +${diff}` :
+          Number(diff) < 0 ? `後退 ${diff}` : "変化なし",
+        頭数: stat.count,
+        優勝: stat.wins,
+        "3着以内": stat.top3
+      }));
+
+    positionChange.innerHTML = makeTable("3コーナーから4コーナーへの位置変化", changeStats);
+
+    status.textContent = "読み込み完了！";
+    status.dataset.loaded = "true";
+
+  } catch (error) {
+    console.error("フェブラリーS分析エラー:", error);
+    status.textContent = "読み込み失敗：" + error.message;
+  }
+}
+
+document.querySelectorAll('[data-view="febAnalysis"]').forEach(button => {
+  button.addEventListener("click", loadFebAnalysis);
+});
+
+console.log("フェブラリーS分析機能を読み込みました");
